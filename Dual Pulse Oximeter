@@ -1,0 +1,116 @@
+//cs2997, kd820, dk2033, djy29
+// 07/01/2025
+
+#include <Wire.h> // Library for I2C communication
+#include "MAX30100_PulseOximeter.h" // Library for the MAX30100 Pulse Oximeter
+#include <SPI.h> // Library for SPI communication
+#include <Adafruit_GFX.h> // Library for graphics on the OLED display
+#include <Adafruit_SSD1306.h> // Library for SSD1306 OLED display
+
+#define REPORTING_PERIOD_MS 1000 // Time interval (in milliseconds) for reporting sensor data
+#define SCREEN_WIDTH 128 // OLED display width in pixels
+#define SCREEN_HEIGHT 16 // OLED display height in pixels
+#define OLED_RESET -1 // OLED reset pin (set to -1 if shared with Arduino reset)
+#define SCREEN_ADDRESS 0x3C // OLED I2C address (0x3C for 128x32 or 0x3D for 128x64 display)
+
+// Create an instance of the OLED display object
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Create an instance of the PulseOximeter object
+PulseOximeter pox;
+
+uint32_t tsLastReport = 0; // Stores the last timestamp of data reporting
+
+// Setup function: Initializes the system
+void setup() {
+    Serial.begin(115200); // Start serial communication at 115200 baud
+
+    Serial.print("Initializing pulse oximeter..");
+
+    // Initialize the PulseOximeter sensor
+    if (!pox.begin()) {
+        Serial.println("FAILED"); // Print error message if initialization fails
+        for(;;); // Stop the program execution
+    } else {
+        Serial.println("SUCCESS"); // Print success message if initialization succeeds
+    }
+
+    // Uncomment to change the IR LED current if needed
+    // pox.setIRLedCurrent(MAX30100_LED_CURR_7_6MA);
+
+    // Register a callback function to detect heartbeats
+    pox.setOnBeatDetectedCallback(onBeatDetected);
+
+    // Initialize the OLED display
+    if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+        Serial.println(F("SSD1306 allocation failed")); // Print error message if OLED fails
+        for(;;); // Stop the program execution
+    }
+    display.clearDisplay(); // Clear the OLED display
+
+    // Draw a test pixel on the OLED display
+    display.drawPixel(10, 10, SSD1306_WHITE);
+    display.display(); // Update the display
+
+    // Set pin modes for LEDs connected to the microcontroller
+    pinMode(A3, OUTPUT);
+    pinMode(A2, OUTPUT);
+    pinMode(3, OUTPUT);
+    pinMode(A7, OUTPUT);
+
+    // Initialize all pins to LOW
+    digitalWrite(A3, LOW);
+    digitalWrite(A2, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(A7, LOW);
+}
+
+// Callback function triggered when a heartbeat is detected
+void onBeatDetected() {
+    Serial.println("Beat!"); // Print message when a heartbeat is detected
+    digitalWrite(3, HIGH); // Turn on LED connected to pin 3
+    delay(100); // Keep LED on for 100ms
+    digitalWrite(3, LOW); // Turn off LED
+}
+
+// Main loop function: Continuously updates sensor data and displays it
+void loop() {
+    // Update PulseOximeter readings
+    pox.update();
+
+    // Periodically print heart rate and SpO2 data
+    if (millis() - tsLastReport > REPORTING_PERIOD_MS) {
+        Serial.print("Heart rate:");
+        Serial.print(pox.getHeartRate()); // Get and print heart rate
+        Serial.print("bpm / SpO2:");
+        Serial.print(pox.getSpO2()); // Get and print SpO2 level
+        Serial.println("%");
+
+        tsLastReport = millis(); // Update the last report timestamp
+    }
+
+    // Activate LEDs based on heart rate and SpO2 levels
+    if (pox.getHeartRate() < 50 || pox.getHeartRate() > 120 || pox.getSpO2() < 90) {
+        digitalWrite(A3, HIGH); // Turn on warning LED if readings are abnormal
+        digitalWrite(A2, LOW); // Turn off normal LED
+    } else {
+        digitalWrite(A2, HIGH); // Turn on normal LED if readings are normal
+        digitalWrite(A3, LOW); // Turn off warning LED
+    }
+
+    // Clear the OLED display
+    display.clearDisplay();
+
+    // Display heart rate and SpO2 readings on the OLED
+    display.setTextSize(1); // Set text size to 1
+    display.setTextColor(SSD1306_WHITE); // Set text color to white
+    display.setCursor(0 , 0); // Set cursor to the first row
+    display.println(F("Heart Rate:"));
+    display.setCursor(64, 0); // Set cursor for heart rate value
+    display.println(pox.getHeartRate());
+    display.setCursor(0 , 9); // Set cursor to the second row
+    display.println(F("Sp02:  %"));
+    display.setCursor(30, 9); // Set cursor for SpO2 value
+    display.println(pox.getSpO2());
+    display.display(); // Update the OLED display
+}
