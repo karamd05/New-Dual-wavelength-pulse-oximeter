@@ -65,6 +65,11 @@ void setup() {
     digitalWrite(A7, LOW);
 }
 
+// Explanation of setup function:
+// Initializes serial communication, the PulseOximeter sensor, and the OLED display.
+// Sets up LED pins and ensures they start in the OFF state.
+// Handles initialization errors for both the sensor and the OLED display.
+
 // Callback function triggered when a heartbeat is detected
 void onBeatDetected() {
     Serial.println("Beat!"); // Print message when a heartbeat is detected
@@ -72,6 +77,10 @@ void onBeatDetected() {
     delay(100); // Keep LED on for 100ms
     digitalWrite(3, LOW); // Turn off LED
 }
+
+// Explanation of onBeatDetected function:
+// This function is called each time a heartbeat is detected.
+// It briefly turns on an LED to provide visual feedback.
 
 // Main loop function: Continuously updates sensor data and displays it
 void loop() {
@@ -114,3 +123,9 @@ void loop() {
     display.println(pox.getSpO2());
     display.display(); // Update the OLED display
 }
+
+// Explanation of loop function:
+// Continuously updates the PulseOximeter sensor readings.
+// Periodically prints heart rate and SpO2 data to the serial monitor.
+// Controls LEDs based on the health status determined by the sensor readings.
+// Updates the OLED display with the latest heart rate and SpO2 values in real-time.
